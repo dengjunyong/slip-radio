@@ -54,6 +54,18 @@
 
 
 #include <string.h>
+#ifdef NULLRDC_CONF_SEND_802154_ACK
+#define NULLRDC_SEND_802154_ACK NULLRDC_CONF_SEND_802154_ACK
+#else /* NULLRDC_CONF_SEND_802154_ACK */
+#define NULLRDC_SEND_802154_ACK 0
+#endif /* NULLRDC_CONF_SEND_802154_ACK */
+
+#if NULLRDC_SEND_802154_ACK
+#include "net/mac/frame802154.h"
+#endif /* NULLRDC_SEND_802154_ACK */
+
+#define ACK_LEN 3
+
 
 /* TX/RX cycles are synchronized with neighbor wake periods */
 #ifdef CONTIKIMAC_CONF_WITH_PHASE_OPTIMIZATION
@@ -66,7 +78,8 @@
 #ifdef CONTIKIMAC_CONF_WITH_CONTIKIMAC_HEADER
 #define WITH_CONTIKIMAC_HEADER       CONTIKIMAC_CONF_WITH_CONTIKIMAC_HEADER
 #else
-#define WITH_CONTIKIMAC_HEADER       1
+//#define WITH_CONTIKIMAC_HEADER       1
+#define WITH_CONTIKIMAC_HEADER       0
 #endif
 /* More aggressive radio sleeping when channel is busy with other traffic */
 #ifndef WITH_FAST_SLEEP
@@ -195,7 +208,11 @@ static int we_are_receiving_burst = 0;
 #ifdef CONTIKIMAC_CONF_INTER_PACKET_INTERVAL
 #define INTER_PACKET_INTERVAL              CONTIKIMAC_CONF_INTER_PACKET_INTERVAL
 #else
+#if NULLRDC_SEND_802154_ACK //软件ACK,等待更长时间
+#define INTER_PACKET_INTERVAL              RTIMER_ARCH_SECOND / 200
+#else
 #define INTER_PACKET_INTERVAL              RTIMER_ARCH_SECOND / 2500
+#endif
 #endif
 
 /* AFTER_ACK_DETECTECT_WAIT_TIME is the time to wait after a potential
@@ -222,7 +239,7 @@ static int we_are_receiving_burst = 0;
 #ifdef CONTIKIMAC_CONF_SHORTEST_PACKET_SIZE
 #define SHORTEST_PACKET_SIZE  CONTIKIMAC_CONF_SHORTEST_PACKET_SIZE
 #else
-#define SHORTEST_PACKET_SIZE               43
+#define SHORTEST_PACKET_SIZE               10
 #endif
 
 
@@ -233,7 +250,11 @@ static struct rtimer rt;
 static struct pt pt;
 
 static volatile uint8_t contikimac_is_on = 0;
+#if KEEP_RADIO_ON
+static volatile uint8_t contikimac_keep_radio_on = 1;
+#else
 static volatile uint8_t contikimac_keep_radio_on = 0;
+#endif
 
 static volatile unsigned char we_are_sending = 0;
 static volatile unsigned char radio_is_on = 0;
@@ -537,6 +558,7 @@ send_packet(mac_callback_t mac_callback, void *mac_callback_ptr,
   int ret;
   uint8_t contikimac_was_on;
   uint8_t seqno;
+  int counts = 0;
 #if WITH_CONTIKIMAC_HEADER
   struct hdr *chdr;
 #endif /* WITH_CONTIKIMAC_HEADER */
@@ -738,6 +760,7 @@ send_packet(mac_callback_t mac_callback, void *mac_callback_ptr,
   for(strobes = 0, collisions = 0;
       got_strobe_ack == 0 && collisions == 0 &&
       RTIMER_CLOCK_LT(RTIMER_NOW(), t0 + STROBE_TIME); strobes++) {
+      counts++;
 
     watchdog_periodic();
 
@@ -924,6 +947,13 @@ recv_burst_off(void *ptr)
 static void
 input_packet(void)
 {
+#if NULLRDC_SEND_802154_ACK
+  int original_datalen;
+  uint8_t *original_dataptr;
+  original_datalen = packetbuf_datalen();
+  original_dataptr = packetbuf_dataptr();
+#endif
+
   static struct ctimer ct;
   if(!we_are_receiving_burst) {
     off();
@@ -969,6 +999,26 @@ input_packet(void)
         ctimer_stop(&ct);
       }
 
+#if NULLRDC_SEND_802154_ACK
+//#if 0
+    {
+      frame802154_t info154;
+      frame802154_parse(original_dataptr, original_datalen, &info154);
+      if(info154.fcf.frame_type == FRAME802154_DATAFRAME &&
+         info154.fcf.ack_required != 0 &&
+         linkaddr_cmp((linkaddr_t *)&info154.dest_addr,
+                      &linkaddr_node_addr)) {
+        uint8_t ackdata[ACK_LEN] = {0, 0, 0};
+
+        ackdata[0] = FRAME802154_ACKFRAME;
+        ackdata[1] = 0;
+        ackdata[2] = info154.seq;
+        NETSTACK_RADIO.send(ackdata, ACK_LEN);
+        PRINTF("nullrdc: send ack!!!\n");
+      }
+    }
+#endif /* NULLRDC_SEND_ACK */
+
       /* Check for duplicate packet. */
       if(mac_sequence_is_duplicate()) {
         /* Drop the packet. */
@@ -1008,6 +1058,7 @@ init(void)
   radio_is_on = 0;
   PT_INIT(&pt);
 
+//  turn_on();
   rtimer_set(&rt, RTIMER_NOW() + CYCLE_TIME, 1,
              (void (*)(struct rtimer *, void *))powercycle, NULL);
 
@@ -1024,7 +1075,11 @@ turn_on(void)
 {
   if(contikimac_is_on == 0) {
     contikimac_is_on = 1;
+#if KEEP_RADIO_ON
+    contikimac_keep_radio_on = 1;
+#else
     contikimac_keep_radio_on = 0;
+#endif
     rtimer_set(&rt, RTIMER_NOW() + CYCLE_TIME, 1,
                (void (*)(struct rtimer *, void *))powercycle, NULL);
   }
