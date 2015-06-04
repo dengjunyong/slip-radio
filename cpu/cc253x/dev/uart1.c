@@ -24,7 +24,9 @@ uart1_init()
   UART_SET_SPEED(1, UART_460_M, UART_460_E);
 #else
   //UART_SET_SPEED(1, UART_115_M, UART_115_E);
-  UART_SET_SPEED(1, UART_38_M, UART_38_E);
+  //UART_SET_SPEED(1, UART_768_M, UART_768_E);
+  UART_SET_SPEED(1, UART_576_M, UART_576_E);
+  //UART_SET_SPEED(1, UART_38_M, UART_38_E);
 #endif
 
 #ifdef UART1_ALTERNATIVE_1
@@ -61,6 +63,11 @@ uart1_init()
   UART1_RX_EN();
 
   UART1_RX_INT(1);
+
+#if UART1_PRIORITY_HIGH
+  IP0 |= 0x08;
+  IP1 |= 0x08;
+#endif
 }
 /*---------------------------------------------------------------------------*/
 /* Write one byte over the UART. */

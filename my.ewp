@@ -739,11 +739,11 @@
         <debug>1</debug>
         <option>
           <name>XOutOverride</name>
-          <state>0</state>
+          <state>1</state>
         </option>
         <option>
           <name>OutputFile</name>
-          <state>my.d51</state>
+          <state>my.hex</state>
         </option>
         <option>
           <name>OutputFormat</name>
@@ -921,7 +921,7 @@
         </option>
         <option>
           <name>DebugInformation</name>
-          <state>0</state>
+          <state>1</state>
         </option>
         <option>
           <name>RuntimeControl</name>
@@ -2428,6 +2428,12 @@
       </group>
       <group>
         <name>mac</name>
+        <file>
+          <name>$PROJ_DIR$\core\net\mac\contikimac\contikimac.c</name>
+        </file>
+        <file>
+          <name>$PROJ_DIR$\core\net\mac\contikimac\contikimac.h</name>
+        </file>
         <file>
           <name>$PROJ_DIR$\core\net\mac\csma.c</name>
         </file>

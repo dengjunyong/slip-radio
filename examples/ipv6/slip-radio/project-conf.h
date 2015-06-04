@@ -33,10 +33,13 @@
 #undef CC2530_RF_CONF_CHANNEL
 #define CC2530_RF_CONF_CHANNEL 26
 //#define NULLRDC_CONF_ACK_WAIT_TIME (RTIMER_SECOND / 100)
-#define NETSTACK_CONF_RDC     contikimac_driver
+//#define NETSTACK_CONF_RDC     contikimac_driver
+#define NETSTACK_CONF_RDC     nullrdc_driver
 #define KEEP_RADIO_ON 1
 #define SICSLOWPAN_CONF_FRAG  1
-#define RFX2401C_ON 1
+//#define RFX2401C_ON 1
+#define UART1_PRIORITY_HIGH 1
+#define NETSTACK_CONF_RDC_CHANNEL_CHECK_RATE 8
 
 #undef QUEUEBUF_CONF_NUM
 #define QUEUEBUF_CONF_NUM          4
